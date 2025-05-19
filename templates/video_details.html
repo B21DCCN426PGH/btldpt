@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ video.filename }} - Video Search System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .video-container {
+            position: relative;
+            overflow: hidden;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            margin-bottom: 1.5rem;
+        }
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .metadata-card {
+            margin-bottom: 1.5rem;
+        }
+        .feature-section {
+            margin-top: 2rem;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">Video Search System</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/upload">Upload</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/search">Search</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/videos">Videos</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>{{ video.filename }}</h1>
+            <a href="/videos" class="btn btn-outline-primary">Back to All Videos</a>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="video-container">
+                    <video controls>
+                        <source src="{{ video.url }}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+                
+                <div class="card metadata-card">
+                    <div class="card-header">
+                        <h5>Video Metadata</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Video ID:</strong> {{ video.id }}</p>
+                                <p><strong>Filename:</strong> {{ video.filename }}</p>
+                                <p><strong>Duration:</strong> {{ video.duration }} seconds</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Resolution:</strong> {{ video.width }}x{{ video.height }}</p>
+                                <p><strong>FPS:</strong> {{ video.fps }}</p>
+                                <p><strong>Storage Path:</strong> {{ video.storage_path }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-body">
+                        <a href="/search" class="btn btn-primary w-100 mb-2">Find Similar Videos</a>
+                        <a href="{{ video.url }}" class="btn btn-outline-secondary w-100 mb-2" download>Download Video</a>
+                    </div>
+                </div>
+                
+                {% if features %}
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5>Tóm tắt đặc trưng</h5>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Extracted Frames:</strong> {{ features.frame_features|length }}</p>
+                            <p><strong>Dominant Colors:</strong></p>
+                            <div class="d-flex mb-3">
+                                {% for i in range(0, 3) %}
+                                    {% set r = features.global_features.avg_dominant_colors[i*3] %}
+                                    {% set g = features.global_features.avg_dominant_colors[i*3+1] %}
+                                    {% set b = features.global_features.avg_dominant_colors[i*3+2] %}
+                                    {% set percentage = features.global_features.avg_dominant_colors[i*3+3] * 100 %}
+                                    <div class="me-2 text-center">
+                                        <div style="width: 30px; height: 30px; background-color: rgb({{ r }}, {{ g }}, {{ b }}); border-radius: 4px;"></div>
+                                        <small>{{ percentage|round(1) }}%</small>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if features.global_features.detected_objects %}
+                                <p><strong>Detected Objects:</strong></p>
+                                <ul class="list-group">
+                                    {% for obj, score in features.global_features.detected_objects.items() %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ obj }}
+                                            <span class="badge bg-primary rounded-pill">{{ (score * 100)|round(1) }}%</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if features %}
+            <div class="feature-section">
+                <h2 class="mb-4">Trực quan đặc trưng</h2>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Color Distribution</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="colorHistChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Texture Features</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="textureChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Edge Features</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="edgeChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Color Statistics</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="chart-container">
+                                    <canvas id="colorStatsChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    {% if features %}
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // Color Histogram Chart
+                const colorHistCtx = document.getElementById('colorHistChart').getContext('2d');
+                const colorHistData = {{ features.global_features.avg_color_histogram|tojson }};
+                
+                // Create labels for color bins (H, S, V)
+                const colorHistLabels = [];
+                for (let i = 0; i < {{ features.global_features.avg_color_histogram|length }}; i++) {
+                    const channel = i < 8 ? 'H' : (i < 16 ? 'S' : 'V');
+                    const bin = i % 8;
+                    colorHistLabels.push(`${channel}${bin}`);
+                }
+                
+                new Chart(colorHistCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: colorHistLabels,
+                        datasets: [{
+                            label: 'Color Distribution',
+                            data: colorHistData,
+                            backgroundColor: function(context) {
+                                const index = context.dataIndex;
+                                if (index < 8) {
+                                    // Hue channel - rainbow colors
+                                    return `hsl(${index * 45}, 100%, 50%)`;
+                                } else if (index < 16) {
+                                    // Saturation channel - grayscale to color
+                                    const value = (index - 8) * 32;
+                                    return `hsl(200, ${value}%, 50%)`;
+                                } else {
+                                    // Value channel - dark to light
+                                    const value = (index - 16) * 32;
+                                    return `hsl(0, 0%, ${value}%)`;
+                                }
+                            },
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                // Texture Features Chart
+                const textureCtx = document.getElementById('textureChart').getContext('2d');
+                const textureData = {{ features.global_features.avg_texture_features|tojson }};
+                const textureLabels = ['Contrast', 'Homogeneity', 'Energy', 'Correlation'];
+                
+                new Chart(textureCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: textureLabels,
+                        datasets: [{
+                            label: 'Texture Features',
+                            data: textureData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                            pointRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+                
+                // Edge Features Chart
+                const edgeCtx = document.getElementById('edgeChart').getContext('2d');
+                const edgeData = {{ features.global_features.avg_edge_features|tojson }};
+                
+                // Create labels for edge features (global + 4x4 grid)
+                const edgeLabels = ['Global'];
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        edgeLabels.push(`Grid ${i+1},${j+1}`);
+                    }
+                }
+                
+                new Chart(edgeCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: edgeLabels,
+                        datasets: [{
+                            label: 'Edge Density',
+                            data: edgeData,
+                            backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 1
+                            }
+                        }
+                    }
+                });
+                
+                // Color Statistics Chart
+                const colorStatsCtx = document.getElementById('colorStatsChart').getContext('2d');
+                const colorStatsData = {{ features.global_features.avg_color_statistics|tojson }};
+                
+                // Create labels for color statistics (mean, std, median, min, max for R, G, B)
+                const colorStatsLabels = [];
+                const channels = ['R', 'G', 'B'];
+                const stats = ['Mean', 'Std', 'Median', 'Min', 'Max'];
+                
+                for (let i = 0; i < channels.length; i++) {
+                    for (let j = 0; j < stats.length; j++) {
+                        colorStatsLabels.push(`${channels[i]} ${stats[j]}`);
+                    }
+                }
+                
+                new Chart(colorStatsCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: colorStatsLabels,
+                        datasets: [{
+                            label: 'Color Statistics',
+                            data: colorStatsData,
+                            backgroundColor: function(context) {
+                                const index = context.dataIndex;
+                                const channel = Math.floor(index / 5);
+                                if (channel === 0) return 'rgba(255, 99, 132, 0.7)'; // Red
+                                if (channel === 1) return 'rgba(75, 192, 192, 0.7)'; // Green
+                                return 'rgba(54, 162, 235, 0.7)'; // Blue
+                            },
+                            borderColor: function(context) {
+                                const index = context.dataIndex;
+                                const channel = Math.floor(index / 5);
+                                if (channel === 0) return 'rgba(255, 99, 132, 1)'; // Red
+                                if (channel === 1) return 'rgba(75, 192, 192, 1)'; // Green
+                                return 'rgba(54, 162, 235, 1)'; // Blue
+                            },
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            });
+        </script>
+    {% endif %}
+</body>
+</html>
